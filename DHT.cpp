@@ -77,22 +77,25 @@ eError DHT::readData()
     // start the transfer
     DHT_io.output();
     DHT_io = 0;
-    wait_us(18 * 1000);
+    wait_us(1000); // bring down at least 800 us (typical 1ms)
     DHT_io = 1;
     wait_us(30);
     DHT_io.input();
-    // wait till the sensor grabs the bus
-    if (ERROR_NONE != stall(DHT_io, 1, 100)) {
+    // wait till the sensor grabs the bus ~80us
+    if (ERROR_NONE != stall(DHT_io, 1, 80)) {
         return ERROR_NOT_PRESENT;
     }
+    
     // sensor should signal low 80us and then hi 80us
-    if (ERROR_NONE != stall(DHT_io, 0, 100)) {
+    if (ERROR_NONE != stall(DHT_io, 0, 80)) {
         return ERROR_SYNC_TIMEOUT;
     }
-    if (ERROR_NONE != stall(DHT_io, 1, 100)) {
+    
+    if (ERROR_NONE != stall(DHT_io, 1, 80)) {
         return ERROR_NO_PATIENCE;
     }
-    // capture the data
+    
+    // capture the data (5 bytes)
     for (i = 0; i < 5; i++) {
         for (j = 0; j < 8; j++) {
             if (ERROR_NONE != stall(DHT_io, 0, 75)) {
@@ -118,7 +121,7 @@ eError DHT::readData()
     }
  
     // uncomment to see the checksum error if it exists
-    //printf(" 0x%02x + 0x%02x + 0x%02x + 0x%02x = 0x%02x \n", DHT_data[0], DHT_data[1], DHT_data[2], DHT_data[3], DHT_data[4]);
+    // printf(" 0x%02x + 0x%02x + 0x%02x + 0x%02x = 0x%02x \n", DHT_data[0], DHT_data[1], DHT_data[2], DHT_data[3], DHT_data[4]);
     data_valid = DHT_data[0] + DHT_data[1] + DHT_data[2] + DHT_data[3];
     if (DHT_data[4] == data_valid) {
         _lastReadTime = currentTime;
@@ -130,12 +133,11 @@ eError DHT::readData()
     }
  
     return err;
- 
 }
  
 float DHT::CalcTemperature()
 {
-    int v;
+    float v;
  
     switch (_DHTtype) {
         case DHT11:
@@ -150,12 +152,41 @@ float DHT::CalcTemperature()
                 v *= -1;
             return float(v);
     }
+    
+    return 0;
+}
+
+float DHT::CalcHumidity()
+{
+    float v;
+ 
+    switch (_DHTtype) {
+        case DHT11:
+            v = DHT_data[0];
+            return float(v);
+        case DHT22:
+            v = DHT_data[0];
+            v *= 256;
+            v += DHT_data[1];
+            v /= 10;
+            return float(v);
+    }
     return 0;
 }
  
 float DHT::ReadHumidity()
 {
     return _lastHumidity;
+}
+
+float DHT::ReadTemperature(eScale Scale)
+{
+    if (Scale == FARENHEIT)
+        return ConvertCelciustoFarenheit(_lastTemperature);
+    else if (Scale == KELVIN)
+        return ConvertCelciustoKelvin(_lastTemperature);
+    else
+        return _lastTemperature;
 }
  
 float DHT::ConvertCelciustoFarenheit(float const celsius)
@@ -193,32 +224,4 @@ float DHT::CalcdewPointFast(float const celsius, float const humidity)
     float temp = (a * celsius) / (b + celsius) + log(humidity/100);
     float Td = (b * temp) / (a - temp);
     return Td;
-}
- 
-float DHT::ReadTemperature(eScale Scale)
-{
-    if (Scale == FARENHEIT)
-        return ConvertCelciustoFarenheit(_lastTemperature);
-    else if (Scale == KELVIN)
-        return ConvertCelciustoKelvin(_lastTemperature);
-    else
-        return _lastTemperature;
-}
- 
-float DHT::CalcHumidity()
-{
-    int v;
- 
-    switch (_DHTtype) {
-        case DHT11:
-            v = DHT_data[0];
-            return float(v);
-        case DHT22:
-            v = DHT_data[0];
-            v *= 256;
-            v += DHT_data[1];
-            v /= 10;
-            return float(v);
-    }
-    return 0;
 }
