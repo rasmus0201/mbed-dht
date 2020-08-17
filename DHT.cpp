@@ -77,21 +77,21 @@ eError DHT::readData()
     // start the transfer
     DHT_io.output();
     DHT_io = 0;
-    wait_us(1000); // bring down at least 800 us (typical 1ms)
+    wait_us(18 * 1000); // bring down at least 800 us (typical 1ms)
     DHT_io = 1;
     wait_us(30);
     DHT_io.input();
     // wait till the sensor grabs the bus ~80us
-    if (ERROR_NONE != stall(DHT_io, 1, 80)) {
+    if (ERROR_NONE != stall(DHT_io, 1, 100)) {
         return ERROR_NOT_PRESENT;
     }
     
     // sensor should signal low 80us and then hi 80us
-    if (ERROR_NONE != stall(DHT_io, 0, 80)) {
+    if (ERROR_NONE != stall(DHT_io, 0, 100)) {
         return ERROR_SYNC_TIMEOUT;
     }
     
-    if (ERROR_NONE != stall(DHT_io, 1, 80)) {
+    if (ERROR_NONE != stall(DHT_io, 1, 100)) {
         return ERROR_NO_PATIENCE;
     }
     
